@@ -1,0 +1,11 @@
+torch>=2.0.0
+torchaudio>=2.0.0
+diffusers>=0.25.0
+transformers
+accelerate
+soundfile
+scipy
+huggingface_hub
+pandas
+tqdm
+numpy

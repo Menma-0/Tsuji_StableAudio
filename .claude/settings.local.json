@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(set PYTHONIOENCODING=utf-8:*)",
+      "Bash(du:*)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\A6000-2\\\\RWCPSSD_Onomatopoeia\\\\selected_files\\\\*.wav\")",
+      "Bash(dir \"C:\\\\Users\\\\A6000-2\\\\RWCPSSD_Onomatopoeia\" /b)",
+      "Bash(dir \"C:\\\\Users\\\\A6000-2\\\\Documents\\\\Tsuji_StableAudio - コピー\\\\checkpoints\\\\experiment_38dim\")",
+      "Bash(dir /b \"C:\\\\Users\\\\A6000-2\\\\RWCPSSD_Onomatopoeia\\\\selected_files\\\\*.wav\")",
+      "Bash(tree:*)"
+    ]
+  }
+}

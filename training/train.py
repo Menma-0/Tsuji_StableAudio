@@ -234,7 +234,9 @@ class Trainer:
                 'input_dim': self.model.input_dim,
                 'latent_dim': self.model.latent_dim,
                 'latent_length': self.model.latent_length,
-            }
+            },
+            # 正規化パラメータ（推論時に必要）
+            'feature_std': self.train_dataset.feature_std,
         }
 
         # 最新のチェックポイント

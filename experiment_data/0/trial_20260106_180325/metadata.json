@@ -1,0 +1,29 @@
+{
+  "participant_id": "0",
+  "timestamp": "2026-01-06T18:03:25.021420",
+  "reference_audio_path": "C:\\Users\\A6000-2\\AppData\\Local\\Temp\\gradio\\498880cf43df5578f70bff608ce1108a73db9af98a087caa1ba1e156f81da293\\pura3.wav",
+  "input_audio_path": "C:\\Users\\A6000-2\\AppData\\Local\\Temp\\gradio\\f12b1285b6cfd19aacebac97433f12ec267ddc41afa83bbea197a8195eba21fd\\pura1.wav",
+  "edits": [
+    {
+      "step": 1,
+      "source_onomatopoeia": "タン",
+      "target_onomatopoeia": "パッ",
+      "alpha": 4,
+      "output_file": "edit1_20260106_180325.wav"
+    },
+    {
+      "step": 2,
+      "source_onomatopoeia": "チッ",
+      "target_onomatopoeia": "タン",
+      "alpha": 4,
+      "output_file": "edit2_20260106_180325.wav"
+    },
+    {
+      "step": 3,
+      "source_onomatopoeia": "タン",
+      "target_onomatopoeia": "パン",
+      "alpha": 4,
+      "output_file": "edit3_20260106_180325.wav"
+    }
+  ]
+}

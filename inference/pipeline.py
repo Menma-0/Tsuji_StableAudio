@@ -70,8 +70,7 @@ class InferencePipeline:
         self.onomatopoeia_encoder: Optional[OnomatopoeiaEncoder] = None
         self.delta_predictor: Optional[DeltaPredictor] = None
 
-        # 正規化パラメータ
-        self.feature_mean: Optional[torch.Tensor] = None
+        # 正規化パラメータ（σのみ使用、μは不要）
         self.feature_std: Optional[torch.Tensor] = None
 
     def load_models(self, checkpoint_path: Union[str, Path] = None):
@@ -112,10 +111,10 @@ class InferencePipeline:
             self.delta_predictor.load_state_dict(checkpoint['model_state_dict'])
             self.delta_predictor.eval()
 
-            # 正規化パラメータ（あれば）
-            if 'feature_mean' in checkpoint:
-                self.feature_mean = checkpoint['feature_mean'].to(self.device)
+            # 正規化パラメータ（σのみ、μは不要）
+            if 'feature_std' in checkpoint:
                 self.feature_std = checkpoint['feature_std'].to(self.device)
+                print(f"  Loaded feature_std for normalization")
 
         print("Models loaded successfully!")
 
@@ -165,9 +164,9 @@ class InferencePipeline:
         f2 = self.onomatopoeia_encoder.encode_single(target_onomatopoeia)
         delta_f = (f2 - f1).to(self.device)
 
-        # 正規化
-        if self.feature_mean is not None:
-            delta_f = (delta_f - self.feature_mean) / self.feature_std
+        # 正規化: 差分をσで割る（fを正規化してから差分を取るのと等価）
+        if self.feature_std is not None:
+            delta_f = delta_f / self.feature_std
 
         delta_f = delta_f.unsqueeze(0).float()  # (1, feature_dim)
         print(f"  Delta F norm: {delta_f.norm():.4f}")
@@ -192,7 +191,13 @@ class InferencePipeline:
         if output_audio.dim() == 3:
             output_audio = output_audio.squeeze(0)  # (channels, samples)
 
-        # 6. 出力を保存
+        # 6. 音量セーフティ（ピーク正規化）
+        max_val = torch.abs(output_audio).max()
+        if max_val > 0.95:
+            output_audio = output_audio / max_val * 0.95
+            print(f"  Safety: Peak normalized from {max_val:.2f} to 0.95")
+
+        # 7. 出力を保存
         if output_path:
             output_np = output_audio.numpy().T  # (samples, channels)
             sf.write(str(output_path), output_np, self.config.audio.sample_rate)
@@ -270,42 +275,48 @@ def main():
     import argparse
 
     # デフォルトのチェックポイントパス
-    default_checkpoint = Path(__file__).parent.parent / "checkpoints" / "experiment_38dim" / "best.pt"
+    default_checkpoint = Path(__file__).parent.parent / "checkpoints" / "experiment_38dim_v2" / "best.pt"
 
     parser = argparse.ArgumentParser(
         description="オノマトペで音声を編集する",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用例:
-  # 基本的な使い方
-  python scripts/run_inference.py --input sound.wav --source "k o q" --target "g a sh a N"
+  # 日本語オノマトペで指定（推奨）
+  python -m inference.pipeline --input sound.wav --source "コッ" --target "ガシャン"
+
+  # 音素表記でも指定可能
+  python -m inference.pipeline --input sound.wav --source "k o q" --target "g a sh a N"
 
   # 出力ファイル名を指定
-  python scripts/run_inference.py --input sound.wav --source "k o q" --target "g a sh a N" --output edited.wav
+  python -m inference.pipeline --input sound.wav --source "コッ" --target "ドン" --output edited.wav
 
   # 編集強度を調整 (0.5=弱め, 1.0=通常, 2.0=強め)
-  python scripts/run_inference.py --input sound.wav --source "k o q" --target "g a sh a N" --alpha 0.5
+  python -m inference.pipeline --input sound.wav --source "スタスタ" --target "ドスドス" --alpha 1.5
 
-オノマトペ表記:
-  k=カ行, g=ガ行, t=タ行, d=ダ行, p=パ行, b=バ行, s=サ行, z=ザ行
-  a=ア, i=イ, u=ウ, e=エ, o=オ
-  N=ン, q=ッ(促音), :=長音
-
-  例: k o q=コッ, g a sh a N=ガシャン, k a: N=カーン
+オノマトペ例:
+  コッ, ガシャン, ドン, カーン, パタパタ, ゴロゴロ, スタスタ, ドスドス
         """
     )
-    parser.add_argument("--input", "-i", type=str, required=True, help="入力音声ファイル")
-    parser.add_argument("--source", "-s", type=str, required=True, help="元のオノマトペ (例: 'k o q')")
-    parser.add_argument("--target", "-t", type=str, required=True, help="目標のオノマトペ (例: 'g a sh a N')")
+    parser.add_argument("--input", "-i", type=str, required=True, help="入力音声ファイル（相対パス可）")
+    parser.add_argument("--source", "-s", type=str, required=True, help="元のオノマトペ (例: 'コッ', 'k o q')")
+    parser.add_argument("--target", "-t", type=str, required=True, help="目標のオノマトペ (例: 'ガシャン', 'g a sh a N')")
     parser.add_argument("--output", "-o", type=str, default=None, help="出力ファイル (デフォルト: input_edited.wav)")
     parser.add_argument("--alpha", "-a", type=float, default=1.0, help="編集強度 (デフォルト: 1.0)")
     parser.add_argument("--checkpoint", "-c", type=str, default=None, help="モデルチェックポイント")
     args = parser.parse_args()
 
+    # 入力パスを解決（相対パス対応）
+    input_path = Path(args.input).resolve()
+    if not input_path.exists():
+        print(f"Error: 入力ファイルが見つかりません: {args.input}")
+        sys.exit(1)
+
     # 出力ファイル名のデフォルト設定
     if args.output is None:
-        input_path = Path(args.input)
         args.output = str(input_path.parent / f"{input_path.stem}_edited{input_path.suffix}")
+    else:
+        args.output = str(Path(args.output).resolve())
 
     # チェックポイントのデフォルト設定
     checkpoint = args.checkpoint if args.checkpoint else default_checkpoint
@@ -318,7 +329,7 @@ def main():
     pipeline.load_models(checkpoint)
 
     pipeline.edit_audio(
-        audio_path=args.input,
+        audio_path=input_path,
         source_onomatopoeia=args.source,
         target_onomatopoeia=args.target,
         alpha=args.alpha,

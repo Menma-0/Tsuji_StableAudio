@@ -1,0 +1,15 @@
+{
+  "participant_id": "0",
+  "timestamp": "2026-01-08T09:00:19.514085",
+  "reference_audio_path": "C:\\Users\\A6000-2\\AppData\\Local\\Temp\\gradio\\bc61fb223b58e447f64cf3055516e8652419e38e1c70b37527df8dc175122d2b\\wood2.wav",
+  "input_audio_path": "C:\\Users\\A6000-2\\AppData\\Local\\Temp\\gradio\\7c4d91884781f995c7317df9cc8830070954d080efef91fdebea09a7dae77dff\\metal2.wav",
+  "edits": [
+    {
+      "step": 1,
+      "source_onomatopoeia": "チン",
+      "target_onomatopoeia": "トン",
+      "alpha": 1.5,
+      "output_file": "edit1_20260108_090019.wav"
+    }
+  ]
+}

@@ -66,19 +66,146 @@ class OnomatopoeiaEncoder(nn.Module):
         # 特殊記号
         self.special_symbols = {'N', 'Q', 'H'}
 
+        # 日本語→音素変換テーブル（拗音を先に処理するため長い順）
+        self.kana_to_phonemes = self._build_kana_table()
+
+    def _build_kana_table(self) -> List[Tuple[str, str]]:
+        """かな→音素変換テーブルを構築（長い順にソート）"""
+        table = {
+            # 拗音（3文字）
+            'きゃ': 'ky a', 'きゅ': 'ky u', 'きょ': 'ky o',
+            'しゃ': 'sh a', 'しゅ': 'sh u', 'しょ': 'sh o',
+            'ちゃ': 'ty a', 'ちゅ': 'ty u', 'ちょ': 'ty o',
+            'にゃ': 'ny a', 'にゅ': 'ny u', 'にょ': 'ny o',
+            'ひゃ': 'hy a', 'ひゅ': 'hy u', 'ひょ': 'hy o',
+            'みゃ': 'my a', 'みゅ': 'my u', 'みょ': 'my o',
+            'りゃ': 'ry a', 'りゅ': 'ry u', 'りょ': 'ry o',
+            'ぎゃ': 'gy a', 'ぎゅ': 'gy u', 'ぎょ': 'gy o',
+            'じゃ': 'j a', 'じゅ': 'j u', 'じょ': 'j o',
+            'びゃ': 'by a', 'びゅ': 'by u', 'びょ': 'by o',
+            'ぴゃ': 'py a', 'ぴゅ': 'py u', 'ぴょ': 'py o',
+            # カタカナ拗音
+            'キャ': 'ky a', 'キュ': 'ky u', 'キョ': 'ky o',
+            'シャ': 'sh a', 'シュ': 'sh u', 'ショ': 'sh o',
+            'チャ': 'ty a', 'チュ': 'ty u', 'チョ': 'ty o',
+            'ニャ': 'ny a', 'ニュ': 'ny u', 'ニョ': 'ny o',
+            'ヒャ': 'hy a', 'ヒュ': 'hy u', 'ヒョ': 'hy o',
+            'ミャ': 'my a', 'ミュ': 'my u', 'ミョ': 'my o',
+            'リャ': 'ry a', 'リュ': 'ry u', 'リョ': 'ry o',
+            'ギャ': 'gy a', 'ギュ': 'gy u', 'ギョ': 'gy o',
+            'ジャ': 'j a', 'ジュ': 'j u', 'ジョ': 'j o',
+            'ビャ': 'by a', 'ビュ': 'by u', 'ビョ': 'by o',
+            'ピャ': 'py a', 'ピュ': 'py u', 'ピョ': 'py o',
+            # 基本ひらがな
+            'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
+            'か': 'k a', 'き': 'k i', 'く': 'k u', 'け': 'k e', 'こ': 'k o',
+            'さ': 's a', 'し': 'sh i', 'す': 's u', 'せ': 's e', 'そ': 's o',
+            'た': 't a', 'ち': 'ty i', 'つ': 't u', 'て': 't e', 'と': 't o',
+            'な': 'n a', 'に': 'n i', 'ぬ': 'n u', 'ね': 'n e', 'の': 'n o',
+            'は': 'h a', 'ひ': 'h i', 'ふ': 'f u', 'へ': 'h e', 'ほ': 'h o',
+            'ま': 'm a', 'み': 'm i', 'む': 'm u', 'め': 'm e', 'も': 'm o',
+            'や': 'y a', 'ゆ': 'y u', 'よ': 'y o',
+            'ら': 'r a', 'り': 'r i', 'る': 'r u', 'れ': 'r e', 'ろ': 'r o',
+            'わ': 'w a', 'を': 'o', 'ん': 'N',
+            'が': 'g a', 'ぎ': 'g i', 'ぐ': 'g u', 'げ': 'g e', 'ご': 'g o',
+            'ざ': 'z a', 'じ': 'j i', 'ず': 'z u', 'ぜ': 'z e', 'ぞ': 'z o',
+            'だ': 'd a', 'ぢ': 'j i', 'づ': 'z u', 'で': 'd e', 'ど': 'd o',
+            'ば': 'b a', 'び': 'b i', 'ぶ': 'b u', 'べ': 'b e', 'ぼ': 'b o',
+            'ぱ': 'p a', 'ぴ': 'p i', 'ぷ': 'p u', 'ぺ': 'p e', 'ぽ': 'p o',
+            'っ': 'q', 'ー': '-',
+            # 基本カタカナ
+            'ア': 'a', 'イ': 'i', 'ウ': 'u', 'エ': 'e', 'オ': 'o',
+            'カ': 'k a', 'キ': 'k i', 'ク': 'k u', 'ケ': 'k e', 'コ': 'k o',
+            'サ': 's a', 'シ': 'sh i', 'ス': 's u', 'セ': 's e', 'ソ': 's o',
+            'タ': 't a', 'チ': 'ty i', 'ツ': 't u', 'テ': 't e', 'ト': 't o',
+            'ナ': 'n a', 'ニ': 'n i', 'ヌ': 'n u', 'ネ': 'n e', 'ノ': 'n o',
+            'ハ': 'h a', 'ヒ': 'h i', 'フ': 'f u', 'ヘ': 'h e', 'ホ': 'h o',
+            'マ': 'm a', 'ミ': 'm i', 'ム': 'm u', 'メ': 'm e', 'モ': 'm o',
+            'ヤ': 'y a', 'ユ': 'y u', 'ヨ': 'y o',
+            'ラ': 'r a', 'リ': 'r i', 'ル': 'r u', 'レ': 'r e', 'ロ': 'r o',
+            'ワ': 'w a', 'ヲ': 'o', 'ン': 'N',
+            'ガ': 'g a', 'ギ': 'g i', 'グ': 'g u', 'ゲ': 'g e', 'ゴ': 'g o',
+            'ザ': 'z a', 'ジ': 'j i', 'ズ': 'z u', 'ゼ': 'z e', 'ゾ': 'z o',
+            'ダ': 'd a', 'ヂ': 'j i', 'ヅ': 'z u', 'デ': 'd e', 'ド': 'd o',
+            'バ': 'b a', 'ビ': 'b i', 'ブ': 'b u', 'ベ': 'b e', 'ボ': 'b o',
+            'パ': 'p a', 'ピ': 'p i', 'プ': 'p u', 'ペ': 'p e', 'ポ': 'p o',
+            'ッ': 'q', 'ー': '-',
+        }
+        # 長い文字列を先にマッチさせるためソート
+        return sorted(table.items(), key=lambda x: len(x[0]), reverse=True)
+
+    def japanese_to_phonemes(self, text: str) -> str:
+        """
+        日本語オノマトペを音素表記に変換
+
+        Args:
+            text: 日本語オノマトペ（例: "ガシャン", "コッ", "スタスタ"）
+
+        Returns:
+            音素表記（例: "g a sh a N", "k o q", "s u t a s u t a"）
+        """
+        result = []
+        i = 0
+        text = text.strip()
+
+        while i < len(text):
+            matched = False
+            for kana, phoneme in self.kana_to_phonemes:
+                if text[i:].startswith(kana):
+                    result.append(phoneme)
+                    i += len(kana)
+                    matched = True
+                    break
+
+            if not matched:
+                # マッチしない文字はスキップ（スペースなど）
+                if text[i] not in ' \t':
+                    result.append(text[i])
+                i += 1
+
+        return ' '.join(result)
+
+    def _is_japanese(self, text: str) -> bool:
+        """テキストが日本語（ひらがな/カタカナ）かどうか判定"""
+        for char in text:
+            if '\u3040' <= char <= '\u309F':  # ひらがな
+                return True
+            if '\u30A0' <= char <= '\u30FF':  # カタカナ
+                return True
+        return False
+
+    def normalize_input(self, onomatopoeia: str) -> str:
+        """
+        入力を正規化（日本語なら音素表記に変換）
+
+        Args:
+            onomatopoeia: オノマトペ（日本語 or 音素表記）
+
+        Returns:
+            音素表記（スペース区切り）
+        """
+        text = onomatopoeia.strip()
+        if self._is_japanese(text):
+            return self.japanese_to_phonemes(text)
+        return text
+
     def parse_phonemes(self, onomatopoeia: str) -> List[str]:
         """
         オノマトペ文字列を音素リストに変換
 
-        RWCP形式（スペース区切り、小文字q）を内部形式に変換
+        日本語（ひらがな/カタカナ）入力も自動で音素表記に変換します。
 
         Args:
-            onomatopoeia: スペース区切りの音素表記（例: "k o q"）
+            onomatopoeia: オノマトペ文字列
+                - 日本語: "ガシャン", "コッ", "スタスタ"
+                - 音素表記: "k o q", "g a sh a N"
 
         Returns:
             音素のリスト（例: ['k', 'o', 'Q']）
         """
-        phonemes = onomatopoeia.strip().split()
+        # 日本語入力なら音素表記に変換
+        text = self.normalize_input(onomatopoeia)
+        phonemes = text.strip().split()
 
         # RWCP形式から内部形式への変換
         converted = []
@@ -429,8 +556,12 @@ class OnomatopoeiaEncoder(nn.Module):
         """
         単一のオノマトペをエンコード
 
+        日本語（ひらがな/カタカナ）入力も自動で音素表記に変換します。
+
         Args:
-            onomatopoeia: オノマトペ文字列（スペース区切りの音素表記）
+            onomatopoeia: オノマトペ文字列
+                - 日本語: "ガシャン", "コッ", "スタスタ"
+                - 音素表記: "g a sh a N", "k o q", "s u t a s u t a"
 
         Returns:
             特徴量ベクトル, shape: (38,)

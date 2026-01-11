@@ -167,12 +167,14 @@ class DeltaPairDataset(Dataset):
         feature2 = data2['feature']
 
         # 差分を計算
-        delta_f = feature2 - feature1
         delta_g = latent2 - latent1
 
-        # 正規化
-        if self.normalize and self.feature_mean is not None:
-            delta_f = (delta_f - self.feature_mean) / self.feature_std
+        # 正規化: fを正規化してから差分を取る（= 差分をσで割る）
+        # これにより平均μがキャンセルされ、各特徴量のスケールが揃う
+        if self.normalize and self.feature_std is not None:
+            delta_f = (feature2 - feature1) / self.feature_std
+        else:
+            delta_f = feature2 - feature1
 
         return {
             'delta_f': delta_f,
